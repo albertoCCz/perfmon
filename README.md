@@ -5,5 +5,5 @@
 > ./main
 ```
  
- *This project depends on [Raylib](!https://github.com/raysan5/raylib/tree/master)
+ *This project depends on [Raylib](https://github.com/raysan5/raylib/tree/master)
  
