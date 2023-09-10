@@ -13,7 +13,6 @@
 int main(void)
 {
 
-    SetWindowState(FLAG_WINDOW_TRANSPARENT);
     InitWindow(WIN_WIDTH*WIN_FACTOR, WIN_HEIGHT*WIN_FACTOR, "Performance Monitoring");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetTargetFPS(15);
@@ -60,7 +59,7 @@ int main(void)
         Vector2 v_line_end   = {graph_offset, WIN_HEIGHT - graph_offset - graph_height};
         
         BeginDrawing();
-        ClearBackground(BLANK);
+        ClearBackground(BLACK);
             DrawText(model_name_txt, 2, 2 + 0*font_size, font_size, LIME);
             DrawText(cpu_mhz_txt,    2, 2 + 1*font_size, font_size, LIME);
             DrawText(mem_total_txt,  2, 2 + 2*font_size, font_size, LIME);
