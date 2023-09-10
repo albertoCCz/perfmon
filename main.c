@@ -49,17 +49,23 @@ int main(void)
         sprintf(mem_free_txt,  "MemFree:      %zu kB", mem_info.mem_free);
         sprintf(mem_avail_txt, "MemAvailable: %zu kB", mem_info.mem_avail);
 
-        size_t graph_offset = 2;
-        size_t graph_thick  = 1;
-        size_t graph_height = 60;
-        Vector2 h_line_start = {graph_offset,             WIN_HEIGHT - graph_offset};
-        Vector2 h_line_end   = {WIN_WIDTH - graph_offset, WIN_HEIGHT - graph_offset};
-
-        Vector2 v_line_start = {graph_offset, WIN_HEIGHT - graph_offset};
-        Vector2 v_line_end   = {graph_offset, WIN_HEIGHT - graph_offset - graph_height};
+        int screen_height = GetScreenHeight();
+        int screen_width  = GetScreenWidth();
         
+        int graph_offset  = 2;
+        int graph_thick   = 1;
+        int graph_height  = screen_height - graph_offset - 65;
+        int graph_width   = screen_width  - 2*graph_offset;
+        
+        Vector2 h_line_start = {graph_offset,               screen_height - graph_offset};
+        Vector2 h_line_end   = {graph_offset + graph_width, screen_height - graph_offset};
+
+        Vector2 v_line_start = {graph_offset, screen_height - graph_offset};
+        Vector2 v_line_end   = {graph_offset, screen_height - graph_offset - graph_height};
+
         BeginDrawing();
         ClearBackground(BLACK);
+            // draw statistics
             DrawText(model_name_txt, 2, 2 + 0*font_size, font_size, LIME);
             DrawText(cpu_mhz_txt,    2, 2 + 1*font_size, font_size, LIME);
             DrawText(mem_total_txt,  2, 2 + 2*font_size, font_size, LIME);
@@ -68,14 +74,14 @@ int main(void)
 
             // draw mhz records
             for (size_t i = 0; i < n_mhz_records - 1; ++i) {
-                float graph_segment_offset = (WIN_WIDTH - 2*graph_offset) / (float) n_mhz_records;
+                float graph_segment_offset = (screen_width - 2*graph_offset) / (float) n_mhz_records;
                 Vector2 segment_start = {
                     graph_segment_offset * i + graph_offset,
-                    WIN_HEIGHT - graph_offset - (mhz_records[i] / (float) max_mhz * graph_height)
+                    screen_height - graph_offset - (mhz_records[i] / (float) max_mhz * graph_height)
                 };
                 Vector2 segment_end = {
                     graph_segment_offset * (i+1) + graph_offset,
-                    WIN_HEIGHT - graph_offset - (mhz_records[i+1] / (float) max_mhz * graph_height)
+                    screen_height - graph_offset - (mhz_records[i+1] / (float) max_mhz * graph_height)
                 };
                 DrawLineEx(segment_start, segment_end, graph_thick, YELLOW);
             }
