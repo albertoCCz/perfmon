@@ -1,22 +1,69 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <string.h>
 
 #include <raylib.h>
 
 #include "perfinfo.h"
 
+#define FPS 60
+
 #define WIN_WIDTH 275
 #define WIN_HEIGHT 130
 #define WIN_FACTOR 1
 
-int main(void)
+typedef struct {
+    int graph_offset;  
+    int graph_thick;   
+    int graph_height;  
+    int graph_width;   
+        
+    Vector2 h_line_start;
+    Vector2 h_line_end;  
+    Vector2 v_line_start;
+    Vector2 v_line_end;  
+} Graph;
+
+void graph_setup(Graph *graph, int screen_width, int screen_height) {
+    graph->graph_offset  = 2;
+    graph->graph_thick   = 1;
+    graph->graph_height = screen_height - graph->graph_offset - 65;
+    graph->graph_width  = screen_width  - 2*graph->graph_offset;
+    
+    graph->h_line_start = (Vector2) {graph->graph_offset,                      screen_height - graph->graph_offset};
+    graph->h_line_end   = (Vector2) {graph->graph_offset + graph->graph_width, screen_height - graph->graph_offset};
+
+    graph->v_line_start = (Vector2) {graph->graph_offset, screen_height - graph->graph_offset};
+    graph->v_line_end   = (Vector2) {graph->graph_offset, screen_height - graph->graph_offset - graph->graph_height};
+}
+
+int main(int argc, char **argv)
 {
+    // parse input args
+    int refresh_time;
+    if (argc < 2) {
+        refresh_time = 75;
+    } else if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0) {
+        printf("perfmon - Super simple cpu and memory performance(perf) monitor(mon) in C\n");
+        printf("USAGE:  ./perfmon [refresh_time]\n");
+        printf("        refresh_time     Time in ms at which to refresh the statistics\n");
+        return 0;
+    } else {
+        refresh_time = atoi(argv[1]);
+        if (refresh_time == 0) {
+            fprintf(stderr, "ERROR: 'refresh_time' can't be zero.\n");
+            exit(-1);
+        }
+    }
 
     InitWindow(WIN_WIDTH*WIN_FACTOR, WIN_HEIGHT*WIN_FACTOR, "Performance Monitoring");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
-    SetTargetFPS(15);
+    SetTargetFPS(FPS);
 
+    int screen_height = GetScreenHeight();
+    int screen_width  = GetScreenWidth();
+    
     CPUINFO cpu_info;
     MEMINFO mem_info;
 
@@ -28,20 +75,35 @@ int main(void)
 
     int font_size = 10;
 
+    // initialised records buffer
     size_t *mhz_records = (size_t*) calloc(100, sizeof(size_t));
     size_t max_mhz = 0;
-    
+
+    // set up graph
+    Graph graph;
+    graph_setup(&graph, screen_width, screen_height);
+
+    struct timespec start_time, current_time;
+    timespec_get(&start_time, TIME_UTC);
+
+    size_t n_mhz_records = 100;
     while (!WindowShouldClose()) {
         // pupulate info structs
-        get_cpuinfo(&cpu_info);
-        get_meminfo(&mem_info);
+        timespec_get(&current_time, TIME_UTC);
+        if ((current_time.tv_sec - start_time.tv_sec) * 1000 +
+            (current_time.tv_nsec - start_time.tv_nsec) / 1000000 >= refresh_time)
+        {
+            start_time = current_time;
+            get_cpuinfo(&cpu_info);
+            get_meminfo(&mem_info);
 
-        // update records
-        size_t n_mhz_records = 100;
-        memmove(mhz_records, mhz_records + 1, (n_mhz_records - 1)*sizeof(typeof(*mhz_records)));
-        mhz_records[n_mhz_records-1] = cpu_info.mhz;
-        if (max_mhz < cpu_info.mhz) max_mhz = cpu_info.mhz;
-        
+            // update records
+            memmove(mhz_records, mhz_records + 1, (n_mhz_records - 1)*sizeof(typeof(*mhz_records)));
+            mhz_records[n_mhz_records-1] = cpu_info.mhz;
+            if (max_mhz < cpu_info.mhz) max_mhz = cpu_info.mhz;
+        }
+
+        // build statistic strings
         sprintf(model_name_txt, "model name: %s", cpu_info.model_name);
         sprintf(cpu_mhz_txt,    "cpu MHz (%zu processors): %.3f MHz", cpu_info.cpu_count, cpu_info.mhz);
 
@@ -49,20 +111,12 @@ int main(void)
         sprintf(mem_free_txt,  "MemFree:      %zu kB", mem_info.mem_free);
         sprintf(mem_avail_txt, "MemAvailable: %zu kB", mem_info.mem_avail);
 
-        int screen_height = GetScreenHeight();
-        int screen_width  = GetScreenWidth();
+        if (IsWindowResized()) {
+            screen_width  = GetScreenWidth();
+            screen_height = GetScreenHeight();
+            graph_setup(&graph, screen_width, screen_height);
+        }
         
-        int graph_offset  = 2;
-        int graph_thick   = 1;
-        int graph_height  = screen_height - graph_offset - 65;
-        int graph_width   = screen_width  - 2*graph_offset;
-        
-        Vector2 h_line_start = {graph_offset,               screen_height - graph_offset};
-        Vector2 h_line_end   = {graph_offset + graph_width, screen_height - graph_offset};
-
-        Vector2 v_line_start = {graph_offset, screen_height - graph_offset};
-        Vector2 v_line_end   = {graph_offset, screen_height - graph_offset - graph_height};
-
         BeginDrawing();
         ClearBackground(BLACK);
             // draw statistics
@@ -74,21 +128,21 @@ int main(void)
 
             // draw mhz records
             for (size_t i = 0; i < n_mhz_records - 1; ++i) {
-                float graph_segment_offset = (screen_width - 2*graph_offset) / (float) n_mhz_records;
+                float graph_segment_offset = (screen_width - 2*graph.graph_offset) / (float) n_mhz_records;
                 Vector2 segment_start = {
-                    graph_segment_offset * i + graph_offset,
-                    screen_height - graph_offset - (mhz_records[i] / (float) max_mhz * graph_height)
+                    graph_segment_offset * i + graph.graph_offset,
+                    screen_height - graph.graph_offset - (mhz_records[i] / (float) max_mhz * graph.graph_height)
                 };
                 Vector2 segment_end = {
-                    graph_segment_offset * (i+1) + graph_offset,
-                    screen_height - graph_offset - (mhz_records[i+1] / (float) max_mhz * graph_height)
+                    graph_segment_offset * (i+1) + graph.graph_offset,
+                    screen_height - graph.graph_offset - (mhz_records[i+1] / (float) max_mhz * graph.graph_height)
                 };
-                DrawLineEx(segment_start, segment_end, graph_thick, YELLOW);
+                DrawLineEx(segment_start, segment_end, graph.graph_thick, YELLOW);
             }
 
             // draw graph axis
-            DrawLineEx(h_line_start, h_line_end, graph_thick, WHITE);
-            DrawLineEx(v_line_start, v_line_end, graph_thick, WHITE);
+            DrawLineEx(graph.h_line_start, graph.h_line_end, graph.graph_thick, WHITE);
+            DrawLineEx(graph.v_line_start, graph.v_line_end, graph.graph_thick, WHITE);
             
         EndDrawing();
     }
