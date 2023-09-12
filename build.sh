@@ -1,3 +1,3 @@
 #!/bin/bash -xe
 
-cc perfinfo.c main.c -lraylib -o main
+cc perfinfo.c main.c -lraylib -o perfmon -ggdb
