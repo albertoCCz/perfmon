@@ -2,7 +2,7 @@
 
 ```console
 > ./build.sh
-> ./main
+> ./permon
 ```
 Screenshot
 ---
