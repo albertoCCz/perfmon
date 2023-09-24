@@ -75,8 +75,9 @@ int main(int argc, char **argv)
 
     int font_size = 10;
 
-    // initialised records buffer
-    size_t *mhz_records = (size_t*) calloc(100, sizeof(size_t));
+    // initialise records buffer
+    size_t n_mhz_records = 100;
+    size_t *mhz_records = (size_t*) calloc(n_mhz_records, sizeof(size_t));
     size_t max_mhz = 0;
 
     // set up graph
@@ -86,7 +87,11 @@ int main(int argc, char **argv)
     struct timespec start_time, current_time;
     timespec_get(&start_time, TIME_UTC);
 
-    size_t n_mhz_records = 100;
+    // set up UI mask
+    RenderTexture2D target = LoadRenderTexture(screen_width, screen_height);
+    Shader shader = LoadShader(0, "./shaders/bw.fs");
+    int APPLY_SHADER = 0;
+
     while (!WindowShouldClose()) {
         // pupulate info structs
         timespec_get(&current_time, TIME_UTC);
@@ -115,10 +120,13 @@ int main(int argc, char **argv)
             screen_width  = GetScreenWidth();
             screen_height = GetScreenHeight();
             graph_setup(&graph, screen_width, screen_height);
+
+            UnloadTexture(target.texture);
+            target = LoadRenderTexture(screen_width, screen_height);
         }
         
-        BeginDrawing();
-        ClearBackground(BLACK);
+        BeginTextureMode(target);
+            ClearBackground(BLACK);
             // draw statistics
             DrawText(model_name_txt, 2, 2 + 0*font_size, font_size, LIME);
             DrawText(cpu_mhz_txt,    2, 2 + 1*font_size, font_size, LIME);
@@ -142,12 +150,30 @@ int main(int argc, char **argv)
 
             // draw graph axis
             DrawLineEx(graph.h_line_start, graph.h_line_end, graph.graph_thick, WHITE);
-            DrawLineEx(graph.v_line_start, graph.v_line_end, graph.graph_thick, WHITE);
-            
+                DrawLineEx(graph.v_line_start, graph.v_line_end, graph.graph_thick, WHITE);            
+        EndTextureMode();
+
+        // draw texture to screen
+        BeginDrawing();
+            ClearBackground(RAYWHITE);
+            if (APPLY_SHADER) {
+                BeginShaderMode(shader);
+                    DrawTextureRec(target.texture, (Rectangle) {0, 0, target.texture.width, -target.texture.height}, (Vector2) {0.0f, 0.0f}, WHITE);
+                EndShaderMode();
+            } else {
+                    DrawTextureRec(target.texture, (Rectangle) {0, 0, target.texture.width, -target.texture.height}, (Vector2) {0.0f, 0.0f}, WHITE);
+            }
         EndDrawing();
+
+        // input
+        if (IsKeyPressed(KEY_SPACE)) APPLY_SHADER = (APPLY_SHADER + 1) % 2;
+        
     }
 
     free(mhz_records);
+    
+    UnloadTexture(target.texture);
+    UnloadShader(shader);
     CloseWindow();
     
     return 0;
